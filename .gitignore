@@ -16,3 +16,4 @@ include/
 # OS
 .DS_Store
 Thumbs.db
+requirements.txt
