@@ -1,0 +1,32 @@
+# PlatformIO
+.DS_Store
+.idea/
+.vscode/
+.pio/
+.pioenvs/
+.piolibdeps/
+lib/
+src/
+.build/
+*.elf
+*.bin
+*.hex
+*.map
+*.d
+*.o
+*.a
+*.lto
+*.ld
+*.json
+*.log
+
+# Arduino IDE
+build/
+*.tmp
+
+# General
+node_modules/
+npm-debug.log*
+.DS_Store
+Thumbs.db
+requirements.txt
