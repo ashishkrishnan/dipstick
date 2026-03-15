@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
-#include "ISensor.h"
+#include "../hal/isensor.h"
 
 // State Machine States
 enum PowerState {
