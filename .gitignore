@@ -1,19 +1,21 @@
-# PlatformIO
+# PlatformIO build artifacts
 .pio/
 lib/
-include/
-
-# IDE
-.vscode/
-.idea/
-
-# Build artifacts
 .build/
 *.elf
 *.bin
 *.hex
 
+# IDE
+.vscode/
+.idea/
+
 # OS
 .DS_Store
 Thumbs.db
+
+# Project files (do NOT ignore these)
+!include/
+!src/
+!test/
 requirements.txt
