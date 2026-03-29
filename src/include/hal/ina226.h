@@ -1,8 +1,8 @@
 #pragma once
 
 #include <Wire.h>
-#include "ISensor.h"
-#include "board.h"
+#include "hal/isensor.h"
+#include "hal/board.h"
 
 // INA226 Registers
 #define INA226_REG_CONFIG           0x00
