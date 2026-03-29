@@ -7,7 +7,7 @@
 #include "include/hal/ina226.h"
 #include "include/hal/temperature.h"
 #include "include/app/monitor.h"
-#include "include/net/wifi.h"
+#include "include/net/wifi_manager.h"
 #include "include/net/mqtt.h"
 
 // Global instances

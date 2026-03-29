@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include "app/monitor.h"
-#include "net/wifi.h"
+#include "net/wifi_manager.h"
 
 class MQTTManager {
 public:
