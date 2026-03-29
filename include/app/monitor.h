@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include "../hal/isensor.h"
+#include "../hal/temperature.h"
 
 // State Machine States
 enum PowerState {
@@ -35,7 +36,7 @@ struct TelemetryDTO {
 // Monitor class: handles coulomb counting, deadband, 3-sample debounce
 class Monitor {
 public:
-    Monitor(ISensor* sensor) : sensor(sensor), lastUpdate(0), capacity_wh(108.0), capacity_wh_remaining(108.0), lastCurrent(0.0), 
+    Monitor(ISensor* sensor, ITemperature* tempSensor) : sensor(sensor), tempSensor(tempSensor), lastUpdate(0), capacity_wh(108.0), capacity_wh_remaining(108.0), lastCurrent(0.0), 
         sampleCountCritical(0), sampleCountWarning(0), lastState(POWER_STATE_ON_BATTERY) {
         // Initialize DTO to safe defaults
         dto.voltage_bus = 0.0;
@@ -49,7 +50,10 @@ public:
         dto.reason = nullptr;
         dto.uptime_seconds = 0;
         dto.internal_temp_c = 0.0;
+        dto.free_heap_bytes = 0;
     }
+
+    ~Monitor() = default;
 
     void update(uint32_t currentMillis) {
         // Only skip update if not the first call and less than 250ms have passed
@@ -61,28 +65,34 @@ public:
         double voltage = sensor->readVoltage();
         double current = sensor->readCurrent();
         double power = sensor->readPower();
+        double temp = tempSensor->readTemperature();
 
-        // Apply deadband filter: treat current < 0.02A as 0.00A
-        if (abs(current) < 0.02) {
+        // Deadband filter: treat current < 0.02A as 0.00A
+        if (current < 0.02 && current > -0.02) {
             current = 0.0;
         }
 
-        // Only do coulomb counting if not the first update
-        if (lastUpdate != 0) {
-            double charge_delta_ah = (current * 0.25) / 3600.0;
-            capacity_wh_remaining -= (charge_delta_ah * voltage); // Wh = Ah × V
+        // Thermal override: force critical if temp > 75°C
+        dto.internal_temp_c = temp;
+        if (temp > 75.0) {
+            lastState = POWER_STATE_CRITICAL;
+            alert_level = ALERT_LEVEL_CRITICAL;
+            reason = "overheat";
+            sampleCountCritical = 3;
         }
 
-        // Enforce: SOC only decreases while on battery
-        if (lastState == POWER_STATE_ON_BATTERY && current < 0) {
-            double new_soc_pct = (capacity_wh_remaining / capacity_wh) * 100.0;
-            if (new_soc_pct > estimated_soc_pct) {
-                capacity_wh_remaining = (estimated_soc_pct / 100.0) * capacity_wh;
-            } else {
-                estimated_soc_pct = new_soc_pct;
-            }
-        } else {
-            estimated_soc_pct = (capacity_wh_remaining / capacity_wh) * 100.0;
+        // Coulomb counting: energy = power * time
+        if (lastUpdate != 0) {
+            double time_delta_hours = 0.25 / 3600.0;
+            double energy_delta_wh = current * voltage * time_delta_hours;
+            capacity_wh_remaining += energy_delta_wh;
+        }
+
+        // SOC calculation: always recalculate from capacity, cap at 100% during charge
+        estimated_soc_pct = (capacity_wh_remaining / capacity_wh) * 100.0;
+        if (current > 0 && estimated_soc_pct > 100.0) {
+            estimated_soc_pct = 100.0;
+            capacity_wh_remaining = capacity_wh;
         }
 
         // Estimate runtime: remaining capacity / discharge rate
@@ -135,6 +145,7 @@ public:
         }
 
         // Update DTO
+        dto.free_heap_bytes = 0;
         dto.voltage_bus = voltage;
         dto.current_amps = current;
         dto.power_watts = power;
@@ -163,6 +174,7 @@ public:
 
 private:
     ISensor* sensor;
+    ITemperature* tempSensor;
     TelemetryDTO dto;
     uint32_t lastUpdate;
     double capacity_wh;
