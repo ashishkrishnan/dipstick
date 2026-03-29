@@ -12,7 +12,8 @@
 
 // Global instances
 WiFiManager wifi("your_ssid", "your_password");
-PubSubClient mqttClient(wifi);
+WiFiClient wifiClient;
+PubSubClient mqttClient(wifiClient);
 INA226 sensor;
 ESP32Temperature esp32Temp;
 Monitor monitor(&sensor, &esp32Temp);
@@ -21,7 +22,7 @@ MQTTManager mqttManager(mqttClient, wifi, monitor);
 void setup() {
     // Initialize I2C
     Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
-    Wire.setTimeOut(100); // Prevent infinite hangs on I2C noise
+    Wire.setTimeOut(100);
 
     // Initialize sensor
     sensor.begin();
@@ -31,10 +32,6 @@ void setup() {
 
     // Initialize MQTT
     mqttManager.begin("mqtt.broker.com", 1883, "dipstick/state");
-
-    // Start watchdog timer
-    esp_task_wdt_init(WDT_TIMEOUT_SECONDS, true); // Enable panic
-    esp_task_wdt_add(NULL); // Add current task
 
     // Small delay to allow hardware to stabilize
     delay(10);
@@ -59,9 +56,6 @@ void loop() {
 
     // Update MQTT connection and publishing
     mqttManager.update();
-
-    // Feed watchdog timer
-    esp_task_wdt_reset();
 
     // Ensure 250ms loop
     while (millis() - lastLoop < 250) {

@@ -72,36 +72,37 @@ public:
 
     void publishState() {
         StaticJsonDocument<512> doc;
-        auto& system = doc.createNestedObject("system");
-        auto& network = doc.createNestedObject("network");
-        auto& battery = doc.createNestedObject("battery");
-        auto& status = doc.createNestedObject("status");
+        
+        JsonObject systemObj = doc.createNestedObject("system");
+        JsonObject networkObj = doc.createNestedObject("network");
+        JsonObject batteryObj = doc.createNestedObject("battery");
+        JsonObject statusObj = doc.createNestedObject("status");
 
         // System info
         auto& dto = monitor.getDTO();
-        system["uptime_seconds"] = dto.uptime_seconds;
-        system["uptime_human"] = formatUptime(dto.uptime_seconds);
-        system["internal_temp_c"] = dto.internal_temp_c;
-        system["free_heap_bytes"] = ESP.getFreeHeap();
+        systemObj["uptime_seconds"] = dto.uptime_seconds;
+        systemObj["uptime_human"] = formatUptime(dto.uptime_seconds);
+        systemObj["internal_temp_c"] = dto.internal_temp_c;
+        systemObj["free_heap_bytes"] = ESP.getFreeHeap();
 
         // Network info
-        network["ip_address"] = wifi.getIPAddress();
-        network["wifi_rssi"] = wifi.getRSSI();
-        network["publish_interval_ms"] = publishInterval;
+        networkObj["ip_address"] = wifi.getIPAddress();
+        networkObj["wifi_rssi"] = wifi.getRSSI();
+        networkObj["publish_interval_ms"] = publishInterval;
 
         // Battery info
-        battery["voltage_bus"] = dto.voltage_bus;
-        battery["current_amps"] = dto.current_amps;
-        battery["power_watts"] = dto.power_watts;
-        battery["capacity_wh_remaining"] = dto.capacity_wh_remaining;
-        battery["estimated_soc_pct"] = dto.estimated_soc_pct;
-        battery["estimated_runtime_seconds"] = dto.estimated_runtime_seconds;
+        batteryObj["voltage_bus"] = dto.voltage_bus;
+        batteryObj["current_amps"] = dto.current_amps;
+        batteryObj["power_watts"] = dto.power_watts;
+        batteryObj["capacity_wh_remaining"] = dto.capacity_wh_remaining;
+        batteryObj["estimated_soc_pct"] = dto.estimated_soc_pct;
+        batteryObj["estimated_runtime_seconds"] = dto.estimated_runtime_seconds;
 
         // Status
-        status["power_state"] = powerStateToString(dto.power_state);
-        status["alert_level"] = alertLevelToString(dto.alert_level);
+        statusObj["power_state"] = powerStateToString(dto.power_state);
+        statusObj["alert_level"] = alertLevelToString(dto.alert_level);
         if (dto.reason) {
-            status["reason"] = dto.reason;
+            statusObj["reason"] = dto.reason;
         }
 
         // Serialize and publish
