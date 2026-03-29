@@ -1,6 +1,6 @@
 #pragma once
-#include "app/monitor.h"
-#include "hal/isensor.h"
+#include "../../src/include/app/monitor.h"
+#include "../../src/include/hal/isensor.h"
 
 // Mock sensor for testing
 class MockSensor : public ISensor {
