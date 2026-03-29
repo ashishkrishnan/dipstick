@@ -9,9 +9,9 @@
 #include "include/app/monitor.h"
 #include "include/net/wifi_manager.h"
 #include "include/net/mqtt.h"
+#include "include/config.h"
 
-// Global instances
-WiFiManager wifi("your_ssid", "your_password");
+WiFiManager wifi(WIFI_SSID, WIFI_PASSWORD);
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 INA226 sensor;
@@ -20,45 +20,26 @@ Monitor monitor(&sensor, &esp32Temp);
 MQTTManager mqttManager(mqttClient, wifi, monitor);
 
 void setup() {
-    // Initialize I2C
     Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
-    Wire.setTimeOut(100);
-
-    // Initialize sensor
+    Wire.setTimeOut(I2C_TIMEOUT);
     sensor.begin();
-
-    // Initialize WiFi
     wifi.begin();
-
-    // Initialize MQTT
-    mqttManager.begin("mqtt.broker.com", 1883, "dipstick/state");
-
-    // Small delay to allow hardware to stabilize
-    delay(10);
+    mqttManager.begin(MQTT_SERVER, MQTT_PORT, MQTT_TOPIC);
+    delay(SETUP_DELAY);
 }
 
 void loop() {
     static uint32_t lastLoop = 0;
     uint32_t currentMillis = millis();
 
-    // Update temperature
     double temp = esp32Temp.readTemperature();
     monitor.setInternalTemp(temp);
-
-    // Update sensor readings
     sensor.update();
-
-    // Update monitor logic
     monitor.update(currentMillis);
-
-    // Update WiFi connection
     wifi.update();
-
-    // Update MQTT connection and publishing
     mqttManager.update();
 
-    // Ensure 250ms loop
-    while (millis() - lastLoop < 250) {
+    while (millis() - lastLoop < LOOP_INTERVAL) {
         delay(1);
     }
     lastLoop = millis();

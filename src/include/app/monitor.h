@@ -3,8 +3,8 @@
 #include <Arduino.h>
 #include "hal/isensor.h"
 #include "hal/temperature.h"
+#include "../config.h"
 
-// State Machine States
 enum PowerState {
     POWER_STATE_CHARGING,
     POWER_STATE_ON_BATTERY,
@@ -18,7 +18,6 @@ enum AlertLevel {
     ALERT_LEVEL_CRITICAL
 };
 
-// Data Transfer Object (DTO) for telemetry
 struct TelemetryDTO {
     double voltage_bus;
     double current_amps;
@@ -34,12 +33,10 @@ struct TelemetryDTO {
     int free_heap_bytes;
 };
 
-// Monitor class: handles coulomb counting, deadband, 3-sample debounce
 class Monitor {
 public:
-    Monitor(ISensor* sensor, ITemperature* tempSensor) : sensor(sensor), tempSensor(tempSensor), lastUpdate(0), capacity_wh(108.0), capacity_wh_remaining(108.0), lastCurrent(0.0), 
+    Monitor(ISensor* sensor, ITemperature* tempSensor) : sensor(sensor), tempSensor(tempSensor), lastUpdate(0), capacity_wh(BATTERY_CAPACITY_WH), capacity_wh_remaining(BATTERY_CAPACITY_WH), lastCurrent(0.0), 
         sampleCountCritical(0), sampleCountWarning(0), lastState(POWER_STATE_ON_BATTERY) {
-        // Initialize DTO to safe defaults
         dto.voltage_bus = 0.0;
         dto.current_amps = 0.0;
         dto.power_watts = 0.0;
@@ -68,28 +65,24 @@ public:
         double power = sensor->readPower();
         double temp = tempSensor->readTemperature();
 
-        // Deadband filter: treat current < 0.02A as 0.00A
-        if (current < 0.02 && current > -0.02) {
+        if (current < CURRENT_DEADBAND_THRESHOLD && current > -CURRENT_DEADBAND_THRESHOLD) {
             current = 0.0;
         }
 
-        // Thermal override: force critical if temp > 75°C
         dto.internal_temp_c = temp;
-        if (temp > 75.0) {
+        if (temp > THERMAL_CRITICAL_TEMP) {
             lastState = POWER_STATE_CRITICAL;
             alert_level = ALERT_LEVEL_CRITICAL;
             reason = "overheat";
             sampleCountCritical = 3;
         }
 
-        // Coulomb counting: energy = power * time
         if (lastUpdate != 0) {
-            double time_delta_hours = 0.25 / 3600.0;
+            double time_delta_hours = LOOP_INTERVAL / 3600.0;
             double energy_delta_wh = current * voltage * time_delta_hours;
             capacity_wh_remaining += energy_delta_wh;
         }
 
-        // SOC calculation: always recalculate from capacity, cap at 100% during charge
         estimated_soc_pct = (capacity_wh_remaining / capacity_wh) * 100.0;
         if (current > 0 && estimated_soc_pct > 100.0) {
             estimated_soc_pct = 100.0;
@@ -103,19 +96,16 @@ public:
             estimated_runtime_seconds = 0;
         }
 
-        // 3-sample debounce for state transitions
-        bool belowCritical = voltage <= 11.2 || estimated_soc_pct <= 10 || estimated_runtime_seconds <= 120;
-        bool belowWarning = estimated_runtime_seconds <= 300 || estimated_soc_pct <= 30;
+        bool belowCritical = voltage <= STATE_CRITICAL_VOLTAGE || estimated_soc_pct <= STATE_CRITICAL_SOC || estimated_runtime_seconds <= STATE_CRITICAL_RUNTIME;
+        bool belowWarning = estimated_runtime_seconds <= STATE_WARNING_RUNTIME || estimated_soc_pct <= STATE_WARNING_SOC;
 
-        // Critical debounce: only increment if below critical
         if (belowCritical) {
             sampleCountCritical++;
-            sampleCountWarning = 0; // Reset warning counter if critical is active
+            sampleCountWarning = 0;
         } else {
             sampleCountCritical = 0;
         }
 
-        // Warning debounce: only increment if below warning and not in critical
         if (!belowCritical && belowWarning) {
             sampleCountWarning++;
         } else {
@@ -135,7 +125,7 @@ public:
                 alert_level = ALERT_LEVEL_WARNING;
                 reason = "capacity_low";
             }
-        } else if (voltage >= 13.2 && current > 0) {
+        } else if (voltage >= STATE_CHARGING_VOLTAGE && current > STATE_CHARGING_CURRENT) {
             lastState = POWER_STATE_CHARGING;
             alert_level = ALERT_LEVEL_NONE;
             reason = nullptr;

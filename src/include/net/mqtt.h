@@ -5,24 +5,24 @@
 #include <ArduinoJson.h>
 #include "app/monitor.h"
 #include "net/wifi_manager.h"
+#include "../config.h"
 
 class MQTTManager {
 public:
     MQTTManager(PubSubClient& mqttClient, WiFiManager& wifi, Monitor& monitor) 
         : mqttClient(mqttClient), wifi(wifi), monitor(monitor), 
-          lastPublish(0), publishInterval(2000), 
-          lastReconnectMillis(0), backoffDelay(1000), reconnectAttempts(0) {}
+          lastPublish(0), publishInterval(THERMAL_DEFAULT_INTERVAL), 
+          lastReconnectMillis(0), backoffDelay(MQTT_RECONNECT_BASE_DELAY), reconnectAttempts(0) {}
 
     void begin(const char* server, int port, const char* topic) {
         this->server = server;
         this->port = port;
         this->topic = topic;
         mqttClient.setServer(server, port);
-        mqttClient.setBufferSize(512); // Required by spec
+        mqttClient.setBufferSize(MQTT_BUFFER_SIZE);
     }
 
     void update() {
-        // Handle MQTT reconnection with exponential backoff
         if (!mqttClient.connected()) {
             uint32_t currentMillis = millis();
             
@@ -48,22 +48,19 @@ public:
                 lastReconnectMillis = currentMillis;
             }
         } else {
-            // Connected: reset everything
             reconnectAttempts = 0;
-            backoffDelay = 1000;
+            backoffDelay = MQTT_RECONNECT_BASE_DELAY;
         }
 
-        // Handle thermal throttling
         double temp = monitor.getDTO().internal_temp_c;
-        if (temp > 75.0) {
-            publishInterval = 10000; // 10s
-        } else if (temp > 65.0) {
-            publishInterval = 5000; // 5s
+        if (temp > THERMAL_CRITICAL_TEMP) {
+            publishInterval = THERMAL_THROTTLE_INTERVAL;
+        } else if (temp > THERMAL_THROTTLE_TEMP) {
+            publishInterval = THERMAL_NORMAL_INTERVAL;
         } else {
-            publishInterval = 2000; // 2s
+            publishInterval = THERMAL_DEFAULT_INTERVAL;
         }
 
-        // Publish state if interval has passed
         if (mqttClient.connected() && (millis() - lastPublish) >= publishInterval) {
             publishState();
             lastPublish = millis();

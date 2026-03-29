@@ -3,6 +3,7 @@
 #include <Wire.h>
 #include "hal/isensor.h"
 #include "hal/board.h"
+#include "../config.h"
 
 // INA226 Registers
 #define INA226_REG_CONFIG           0x00
@@ -12,38 +13,30 @@
 #define INA226_REG_CURRENT          0x04
 #define INA226_REG_CALIBRATION      0x05
 
-// Configuration settings
-#define INA226_CALIBRATION_VALUE    3413  // Based on 0.00075Ω shunt, 0.002A LSB
-#define INA226_BUS_RANGE            32    // 32V range
-#define INA226_GAIN               1       // Gain 1 (x1)
-
 class INA226 : public ISensor {
 public:
     INA226() : lastGoodVoltage(0.0), lastGoodCurrent(0.0), lastGoodPower(0.0), lastGoodTemp(0.0) {}
 
     void begin() {
         Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
-        Wire.setTimeOut(100); // Prevent infinite hangs on I2C noise
+        Wire.setTimeOut(I2C_TIMEOUT);
 
-        // Set calibration
-        writeRegister(INA226_REG_CALIBRATION, INA226_CALIBRATION_VALUE);
+        writeRegister(INA226_REG_CALIBRATION, INA226_CALIBRATION);
 
-        // Configure: 32V range, x1 gain, 1.1ms avg, 1.1ms bus, 1.1ms shunt, continuous mode
-        uint16_t config = (0b000 << 13) | // 32V range
-                          (0b000 << 11) | // x1 gain
-                          (0b100 << 8)  | // 1.1ms avg
-                          (0b100 << 5)  | // 1.1ms bus
-                          (0b100 << 2)  | // 1.1ms shunt
-                          (0b11);           // Continuous mode
+        uint16_t config = (0b000 << 13) |
+                          (0b000 << 11) |
+                          (0b100 << 8)  |
+                          (0b100 << 5)  |
+                          (0b100 << 2)  |
+                          (0b11);
         writeRegister(INA226_REG_CONFIG, config);
     }
 
     double readVoltage() override {
         uint16_t raw = readRegister(INA226_REG_BUS_VOLTAGE);
-        double voltage = (raw * 1.25) / 1000.0; // 1.25mV per bit
+        double voltage = (raw * 1.25) / 1000.0;
 
-        // Validate: reject out-of-range values
-        if (voltage > 15.0 || voltage < 5.0) {
+        if (voltage > VOLTAGE_MAX_VALID || voltage < VOLTAGE_MIN_VALID) {
             return lastGoodVoltage;
         }
         lastGoodVoltage = voltage;
@@ -52,7 +45,7 @@ public:
 
     double readCurrent() override {
         int16_t raw = readRegister(INA226_REG_CURRENT);
-        double current = (raw * 0.002);
+        double current = (raw * CURRENT_LSB);
 
         lastGoodCurrent = current;
         return current;
@@ -60,19 +53,17 @@ public:
 
     double readPower() override {
         uint16_t raw = readRegister(INA226_REG_POWER);
-        double power = (raw * 0.004); // 4mW per bit
+        double power = (raw * 0.004);
 
         lastGoodPower = power;
         return power;
     }
 
     double readTemperature() override {
-        // Not implemented — use ESP32 internal temp sensor in main
         return lastGoodTemp;
     }
 
     void update() override {
-        // Update all readings
         readVoltage();
         readCurrent();
         readPower();
@@ -87,17 +78,17 @@ private:
     double lastGoodVoltage, lastGoodCurrent, lastGoodPower, lastGoodTemp;
 
     uint16_t readRegister(uint8_t reg) {
-        Wire.beginTransmission(0x40);
+        Wire.beginTransmission(INA226_ADDRESS);
         Wire.write(reg);
         Wire.endTransmission();
-        Wire.requestFrom(0x40, 2);
+        Wire.requestFrom(INA226_ADDRESS, 2);
         if (Wire.available() != 2) return 0;
         uint16_t value = (Wire.read() << 8) | Wire.read();
         return value;
     }
 
     void writeRegister(uint8_t reg, uint16_t value) {
-        Wire.beginTransmission(0x40);
+        Wire.beginTransmission(INA226_ADDRESS);
         Wire.write(reg);
         Wire.write(value >> 8);
         Wire.write(value & 0xFF);

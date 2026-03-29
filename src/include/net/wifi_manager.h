@@ -2,10 +2,11 @@
 
 #include <WiFi.h>
 #include <Arduino.h>
+#include "../config.h"
 
 class WiFiManager {
 public:
-    WiFiManager(const char* ssid, const char* password) : ssid(ssid), password(password), lastConnect(0), connectInterval(1000) {}
+    WiFiManager(const char* ssid, const char* password) : ssid(ssid), password(password), lastConnect(0), connectInterval(WIFI_CONNECT_INTERVAL) {}
 
     void begin() {
         WiFi.mode(WIFI_STA);
@@ -19,7 +20,6 @@ public:
 
     void update() {
         if (!isConnected() && (millis() - lastConnect) >= connectInterval) {
-            // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 32s, 60s max
             if (connectInterval < 60000) {
                 connectInterval *= 2;
             }
