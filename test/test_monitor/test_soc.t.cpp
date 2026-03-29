@@ -1,5 +1,5 @@
 #include <unity.h>
-#include "app/monitor.h"
+#include "../../src/include/app/monitor.h"
 #include "test_utils.h"
 
 void test_soc_decreases_on_discharge() {
