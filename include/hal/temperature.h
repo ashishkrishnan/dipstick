@@ -11,7 +11,11 @@ public:
 class ESP32Temperature : public ITemperature {
 public:
     double readTemperature() override {
+#ifdef ARDUINO_ARCH_ESP32
         return temperatureRead();
+#else
+        return 25.0;  // Default for native tests
+#endif
     }
 };
 
