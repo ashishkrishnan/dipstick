@@ -52,12 +52,7 @@ public:
 
     double readCurrent() override {
         int16_t raw = readRegister(INA226_REG_CURRENT);
-        double current = (raw * 0.002); // 2mA per bit
-
-        // Deadband filter: treat < 0.02A as 0.00A
-        if (abs(current) < 0.02) {
-            current = 0.0;
-        }
+        double current = (raw * 0.002);
 
         lastGoodCurrent = current;
         return current;
