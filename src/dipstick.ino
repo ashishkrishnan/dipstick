@@ -5,6 +5,7 @@
 #include "hal/board.h"
 #include "hal/isensor.h"
 #include "hal/ina226.h"
+#include "hal/temperature.h"
 #include "app/monitor.h"
 #include "net/wifi.h"
 #include "net/mqtt.h"
@@ -13,7 +14,8 @@
 WiFiManager wifi("your_ssid", "your_password");
 PubSubClient mqttClient(wifi);
 INA226 sensor;
-Monitor monitor(&sensor);
+ESP32Temperature esp32Temp;
+Monitor monitor(&sensor, &esp32Temp);
 MQTTManager mqttManager(mqttClient, wifi, monitor);
 
 void setup() {
@@ -41,6 +43,10 @@ void setup() {
 void loop() {
     static uint32_t lastLoop = 0;
     uint32_t currentMillis = millis();
+
+    // Update temperature
+    double temp = esp32Temp.readTemperature();
+    monitor.setInternalTemp(temp);
 
     // Update sensor readings
     sensor.update();
