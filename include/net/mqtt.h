@@ -9,7 +9,9 @@
 class MQTTManager {
 public:
     MQTTManager(PubSubClient& mqttClient, WiFiManager& wifi, Monitor& monitor) 
-        : mqttClient(mqttClient), wifi(wifi), monitor(monitor), lastPublish(0), publishInterval(2000), reconnectAttempts(0), lastReconnect(0) {}
+        : mqttClient(mqttClient), wifi(wifi), monitor(monitor), 
+          lastPublish(0), publishInterval(2000), 
+          lastReconnectMillis(0), backoffDelay(1000), reconnectAttempts(0) {}
 
     void begin(const char* server, int port, const char* topic) {
         this->server = server;
@@ -22,22 +24,33 @@ public:
     void update() {
         // Handle MQTT reconnection with exponential backoff
         if (!mqttClient.connected()) {
-            if (millis() - lastReconnect >= 1000) {
-                if (reconnectAttempts < 5) { // Max 5 attempts per minute
-                    if (reconnectAttempts == 0) {
-                        reconnectAttempts = 1;
-                    } else {
-                        reconnectAttempts *= 2;
+            uint32_t currentMillis = millis();
+            
+            if (currentMillis - lastReconnectMillis >= backoffDelay) {
+                if (mqttClient.connect("dipstick")) {
+                    // Success: reset backoff
+                    backoffDelay = 1000;
+                    reconnectAttempts = 0;
+                } else {
+                    // Failed: exponential backoff
+                    reconnectAttempts++;
+                    backoffDelay *= 2;
+                    if (backoffDelay > 60000) {
+                        backoffDelay = 60000;
                     }
-                    if (reconnectAttempts > 60) reconnectAttempts = 60; // Cap at 60s
-                    if (mqttClient.connect("dipstick")) {
+                    
+                    // Enforce max 5 attempts per minute
+                    if (reconnectAttempts >= 5) {
+                        backoffDelay = 60000;
                         reconnectAttempts = 0;
                     }
                 }
-                lastReconnect = millis();
+                lastReconnectMillis = currentMillis;
             }
         } else {
+            // Connected: reset everything
             reconnectAttempts = 0;
+            backoffDelay = 1000;
         }
 
         // Handle thermal throttling
@@ -106,8 +119,11 @@ private:
     const char* topic;
     uint32_t lastPublish;
     uint32_t publishInterval;
-    uint32_t reconnectAttempts;
-    uint32_t lastReconnect;
+    uint32_t lastReconnectMillis;
+    uint32_t backoffDelay;
+    int reconnectAttempts;
+    const uint32_t MAX_BACKOFF_MS = 60000;
+    const int MAX_RECONNECT_ATTEMPTS_PER_MINUTE = 5;
 
     const char* powerStateToString(PowerState state) {
         switch (state) {
