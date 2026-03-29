@@ -3,8 +3,8 @@
 #include <PubSubClient.h>
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#include "app/monitor.h"
-#include "net/wifi_manager.h"
+#include "../app/monitor.h"
+#include "../net/wifi_manager.h"
 #include "../config.h"
 
 class MQTTManager {
