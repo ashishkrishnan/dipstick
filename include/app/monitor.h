@@ -31,6 +31,7 @@ struct TelemetryDTO {
     const char* reason;
     uint32_t uptime_seconds;
     double internal_temp_c;
+    int free_heap_bytes;
 };
 
 // Monitor class: handles coulomb counting, deadband, 3-sample debounce
@@ -171,6 +172,10 @@ public:
 
     void setUptime(uint32_t uptime) { dto.uptime_seconds = uptime; }
     void setInternalTemp(double temp) { dto.internal_temp_c = temp; }
+    
+    // Test-only accessors for setting initial state
+    void setCapacityWHRemaining(double capacity) { capacity_wh_remaining = capacity; }
+    void setEstimatedSocPct(double soc) { estimated_soc_pct = soc; }
 
 private:
     ISensor* sensor;

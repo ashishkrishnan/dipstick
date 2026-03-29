@@ -1,7 +1,6 @@
 #pragma once
 #include "app/monitor.h"
 #include "hal/isensor.h"
-#include "hal/temperature.h"
 
 // Mock sensor for testing
 class MockSensor : public ISensor {
@@ -20,11 +19,4 @@ public:
     double getLastKnownCurrent() const override { return mockCurrent; }
     double getLastKnownPower() const override { return mockPower; }
     double getLastKnownTemperature() const override { return mockTemp; }
-};
-
-// Mock temperature for testing
-class MockTemperature : public ITemperature {
-public:
-    double mockTemp = 25.0;
-    double readTemperature() override { return mockTemp; }
 };

@@ -86,19 +86,31 @@ void test_monitor_3_sample_debounce() {
     MockTemperature mockTemp;
     Monitor monitor(&mock, &mockTemp);
 
+    // Start with normal state (high SOC)
+    mock.mockVoltage = 12.5;
+    mock.mockCurrent = -5.0;
+    mock.mockPower = -62.5;
     monitor.update(0);
+    TEST_ASSERT_EQUAL(POWER_STATE_ON_BATTERY, monitor.getDTO().power_state);
 
-    mock.mockVoltage = 11.5;
+    // Now set low SOC to trigger warning condition
+    mock.mockVoltage = 12.0;
     mock.mockCurrent = -0.5;
-    mock.mockPower = -5.75;
+    mock.mockPower = -6.0;
+    monitor.setCapacityWHRemaining(32.4);  // 30% of 108Wh
+    monitor.setEstimatedSocPct(30.0);
+    
+    // First sample with warning condition - should still be ON_BATTERY (debounce)
     monitor.update(250);
+    TEST_ASSERT_EQUAL(POWER_STATE_ON_BATTERY, monitor.getDTO().power_state);
+    
+    // Second sample - still ON_BATTERY (need 3 consecutive)
     monitor.update(500);
+    TEST_ASSERT_EQUAL(POWER_STATE_ON_BATTERY, monitor.getDTO().power_state);
 
-    TelemetryDTO& dto = monitor.getDTO();
-    TEST_ASSERT_EQUAL(POWER_STATE_ON_BATTERY, dto.power_state);
-
+    // Third sample - now should trigger WARNING
     monitor.update(750);
-    TEST_ASSERT_EQUAL(POWER_STATE_WARNING, dto.power_state);
+    TEST_ASSERT_EQUAL(POWER_STATE_WARNING, monitor.getDTO().power_state);
 }
 
 int main() {
