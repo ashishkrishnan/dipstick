@@ -2,13 +2,13 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <Wire.h>
-#include "hal/board.h"
-#include "hal/isensor.h"
-#include "hal/ina226.h"
-#include "hal/temperature.h"
-#include "app/monitor.h"
-#include "net/wifi.h"
-#include "net/mqtt.h"
+#include "include/hal/board.h"
+#include "include/hal/isensor.h"
+#include "include/hal/ina226.h"
+#include "include/hal/temperature.h"
+#include "include/app/monitor.h"
+#include "include/net/wifi.h"
+#include "include/net/mqtt.h"
 
 // Global instances
 WiFiManager wifi("your_ssid", "your_password");
