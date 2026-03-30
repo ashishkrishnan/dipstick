@@ -1,6 +1,6 @@
-# Project Dipstick
+# Dipstick
 
-An industrial-grade ESP32-based UPS battery monitor that bypasses the UPS's internal logic to provide raw, highly accurate telemetry (Voltage, Current, Wattage, and State of Charge) via an external shunt. Uses coulomb counting and a multi-variable state machine to trigger automated server shutdowns via MQTT.
+An ESP32-based UPS battery monitor that bypasses the UPS's internal logic to provide raw, highly accurate telemetry (Voltage, Current, Wattage, and State of Charge) via an external shunt. Uses coulomb counting and a multi-variable state machine to trigger automated server shutdowns via MQTT.
 
 ## Quick Start
 
