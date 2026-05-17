@@ -29,8 +29,8 @@ public:
         }
     }
 
-    const char* getIPAddress() {
-        return WiFi.localIP().toString().c_str();
+    String getIPAddress() {
+        return WiFi.localIP().toString();
     }
 
     int getRSSI() {
