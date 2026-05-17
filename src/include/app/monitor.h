@@ -70,43 +70,53 @@ public:
         }
 
         dto.internal_temp_c = temp;
-        if (temp > THERMAL_CRITICAL_TEMP) {
-            lastState = POWER_STATE_CRITICAL;
-            alert_level = ALERT_LEVEL_CRITICAL;
-            reason = "overheat";
-            sampleCountCritical = 3;
-        }
 
         if (lastUpdate != 0) {
             double time_delta_hours = LOOP_INTERVAL / 3600.0;
             double energy_delta_wh = current * voltage * time_delta_hours;
             capacity_wh_remaining += energy_delta_wh;
+
+            // Keep capacity within valid bounds
+            if (capacity_wh_remaining < 0) {
+                capacity_wh_remaining = 0;
+            }
+            if (capacity_wh_remaining > capacity_wh) {
+                capacity_wh_remaining = capacity_wh;
+            }
         }
 
         estimated_soc_pct = (capacity_wh_remaining / capacity_wh) * 100.0;
-        if (current > 0 && estimated_soc_pct > 100.0) {
+        if (estimated_soc_pct > 100.0) {
             estimated_soc_pct = 100.0;
-            capacity_wh_remaining = capacity_wh;
+        }
+        if (estimated_soc_pct < 0.0) {
+            estimated_soc_pct = 0.0;
         }
 
         // Estimate runtime: remaining capacity / discharge rate
-        if (current < 0) {
+        if (current < 0 && power < -0.5) {
             estimated_runtime_seconds = (capacity_wh_remaining / (-power)) * 3600.0;
         } else {
             estimated_runtime_seconds = 0;
         }
 
-        bool belowCritical = voltage <= STATE_CRITICAL_VOLTAGE || estimated_soc_pct <= STATE_CRITICAL_SOC || estimated_runtime_seconds <= STATE_CRITICAL_RUNTIME;
-        bool belowWarning = estimated_runtime_seconds <= STATE_WARNING_RUNTIME || estimated_soc_pct <= STATE_WARNING_SOC;
+        bool belowCritical = voltage <= STATE_CRITICAL_VOLTAGE || estimated_soc_pct <= STATE_CRITICAL_SOC || (estimated_runtime_seconds > 0 && estimated_runtime_seconds <= STATE_CRITICAL_RUNTIME);
+        bool belowWarning = (estimated_runtime_seconds > 0 && estimated_runtime_seconds <= STATE_WARNING_RUNTIME) || estimated_soc_pct <= STATE_WARNING_SOC;
 
-        if (belowCritical) {
+        // Thermal override takes precedence - immediate critical state
+        bool isThermalCritical = temp > THERMAL_CRITICAL_TEMP;
+
+        if (isThermalCritical) {
+            sampleCountCritical = 3;
+            sampleCountWarning = 0;
+        } else if (belowCritical) {
             sampleCountCritical++;
             sampleCountWarning = 0;
         } else {
             sampleCountCritical = 0;
         }
 
-        if (!belowCritical && belowWarning) {
+        if (!isThermalCritical && !belowCritical && belowWarning) {
             sampleCountWarning++;
         } else {
             sampleCountWarning = 0;
@@ -117,7 +127,7 @@ public:
             if (lastState != POWER_STATE_CRITICAL) {
                 lastState = POWER_STATE_CRITICAL;
                 alert_level = ALERT_LEVEL_CRITICAL;
-                reason = "capacity_low";
+                reason = isThermalCritical ? "overheat" : "capacity_low";
             }
         } else if (sampleCountWarning >= 3) {
             if (lastState != POWER_STATE_WARNING) {
@@ -136,7 +146,7 @@ public:
         }
 
         // Update DTO
-        dto.free_heap_bytes = 0;
+        dto.free_heap_bytes = ESP.getFreeHeap();
         dto.voltage_bus = voltage;
         dto.current_amps = current;
         dto.power_watts = power;
