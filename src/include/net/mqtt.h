@@ -83,7 +83,7 @@ public:
         systemObj["free_heap_bytes"] = ESP.getFreeHeap();
 
         // Network info
-        networkObj["ip_address"] = wifi.getIPAddress();
+        networkObj["ip_address"] = wifi.getIPAddress().c_str();
         networkObj["wifi_rssi"] = wifi.getRSSI();
         networkObj["publish_interval_ms"] = publishInterval;
 
