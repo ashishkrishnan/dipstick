@@ -80,7 +80,8 @@ private:
     uint16_t readRegister(uint8_t reg) {
         Wire.beginTransmission(INA226_ADDRESS);
         Wire.write(reg);
-        Wire.endTransmission();
+        if (Wire.endTransmission() != 0) return 0;
+
         Wire.requestFrom(INA226_ADDRESS, 2);
         if (Wire.available() != 2) return 0;
         uint16_t value = (Wire.read() << 8) | Wire.read();
